@@ -22,7 +22,7 @@ def create_matrix(n,m):
     for i in range (n):
         for j in range (m):
             #Matrix[i][j] = random.randint(0,3)
-            Matrix[i,j]=random.uniform(0.5, 75.5)
+            Matrix[i,j]=random.uniform(0, 100)
     return Matrix
 
 def frob_norm(A):
@@ -74,23 +74,18 @@ def _NMF(X,d,num_of_iterations,num_of_start_points,file_name):
     p=n_col(X)
     min_targ_func_value=0
     for num in range(num_of_start_points):
-        #print(num)
         W = create_matrix(N, d)
         H = create_matrix(d, p)
-        list_of_targ_func_values = [frob_norm(X - np.dot(W, H))]
+        #list_of_targ_func_values = [frob_norm(X - np.dot(W, H))]
         for _ in range(num_of_iterations):
             W, H = _NMF_step(X, W, H)
-            targ_func_value = frob_norm(X - np.dot(W, H))
-            list_of_targ_func_values.append(targ_func_value)
+            #targ_func_value = frob_norm(X - np.dot(W, H))
+            #list_of_targ_func_values.append(targ_func_value)
+        targ_func_value = frob_norm(X - np.dot(W, H))
         if num==0 or (min_targ_func_value>targ_func_value):
             min_targ_func_value=targ_func_value
             W_main=W
             H_main=H
-        #target_function_values.append(aim)
-
-        #print('X\n', X)
-        #print('W\n', np.around(W, decimals=2), '\nH\n', np.around(H, decimals=2))
-        #print('list', list_of_targ_func_values)
 
     print('MAIN RESULTS')
     print('X\n', X)
@@ -99,28 +94,28 @@ def _NMF(X,d,num_of_iterations,num_of_start_points,file_name):
     sys.stdout = original_stdout
     File_NMF.close()
 
-    return W_main,H_main
+    return W_main,H_main,min_targ_func_value
 
 def jNMF(X,Y,d,num_of_iterations,num_of_start_points):
     """jointNMF factorization with d latent variables"""
     XY=np.hstack((X,Y))
     p=n_col(X)
     q=n_col(Y)
-    W,H=_NMF(XY, d, num_of_iterations, num_of_start_points, 'jNMF')
+    #W,H=_NMF(XY, d, num_of_iterations, num_of_start_points, 'jNMF')
+    W, H,min_targ_func_value = _NMF(XY, d, num_of_iterations, num_of_start_points, 'workNMF')
     [H_x,H_y]=np.split(H,[p],axis=1)
     original_stdout = sys.stdout
-    File_NMF = open('jNMF', 'a')
+    File_NMF = open('jNMF', 'w')
     sys.stdout = File_NMF
 
+    print('X\n', np.around(X, decimals=2),'\n Y\n',np.around(Y, decimals=2))
+    print('W\n', np.around(W, decimals=2))
     print('H_x\n',np.around(H_x, decimals=2))
     print('H_y\n', np.around(H_y, decimals=2))
-    
+    print('targ_func_value=', min_targ_func_value)
+
     sys.stdout = original_stdout
     File_NMF.close()
-
-
-
-
 
 
 def iNMF_step(X,Y,W,V_x,V_y,H_x,H_y,lam):
@@ -129,7 +124,6 @@ def iNMF_step(X,Y,W,V_x,V_y,H_x,H_y,lam):
     d=n_col(W)
     p=n_col(H_x)
     q=n_col(H_y)
-
 
     for i in range(N):
         for j in range(d):
@@ -169,27 +163,53 @@ def iNMF_step(X,Y,W,V_x,V_y,H_x,H_y,lam):
 
     return W,V_x,V_y,H_x,H_y
 
-def iNMF(X,Y,d,lam,num_of_iterations):
+def iNMF(X,Y,d,lam,num_of_iterations,num_of_start_points):
     """NMF factorization with d latent variables"""
+    original_stdout = sys.stdout
+    File_iNMF = open('iNMF', 'w')
+    sys.stdout = File_iNMF
+    print('parameters:\n'+'lambda='+str(lam)+'\n rank of factorization='+str(d))
+
     if n_row(X)!=n_row(Y):
         print('warning! rows of X is not equal to rows of Y')
     N=n_row(X)
     p=n_col(X)
     q=n_col(Y)
-    W=create_matrix(N,d)
-    V_x = create_matrix(N, d)
-    V_y = create_matrix(N, d)
-    H_x=create_matrix(d,p)
-    H_y = create_matrix(d, q)
-    list_of_aims=[(frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
-            (frob_norm(np.dot(V_x, H_x)))**2 + (frob_norm(np.dot(V_y, H_y)))**2)]
-    for _ in range(num_of_iterations):
-        W,V_x,V_y,H_x,H_y=iNMF_step(X,Y,W,V_x,V_y,H_x,H_y,lam)
-        aim = (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
-                (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)
-        list_of_aims.append(aim)
+    min_targ_func_value = 0
+    for num in range(num_of_start_points):
+        W = create_matrix(N, d)
+        V_x = create_matrix(N, d)
+        V_y = create_matrix(N, d)
+        H_x = create_matrix(d, p)
+        H_y = create_matrix(d, q)
+        #list_of_aims = [
+           # (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
+            #        (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)]
+        for _ in range(num_of_iterations):
+            W, V_x, V_y, H_x, H_y = iNMF_step(X, Y, W, V_x, V_y, H_x, H_y, lam)
+        targ_func_value = (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
+                    (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)
+        if num==0 or (min_targ_func_value>targ_func_value):
+            min_targ_func_value=targ_func_value
+            W_main=W
+            V_x_main=V_x
+            V_y_main=V_y
+            H_x_main=H_x
+            H_y_main=H_y
 
-    return W,V_x,V_y,H_x,H_y,list_of_aims
+    print('\n MAIN RESULTS')
+    print('X\n', X)
+    print('Y\n', Y)
+    print('W\n', np.around(W_main, decimals=7),'\nV_x', np.around(V_x_main, decimals=7),'\nV_y\n',
+          np.around(V_y_main, decimals=7),'\nH_x\n',np.around(H_x_main, decimals=7),
+          '\nH_y\n',np.around(H_y_main, decimals=7), '\ntarg_func',
+          min_targ_func_value)
+
+
+    sys.stdout = original_stdout
+    File_iNMF.close()
+
+    return W,V_x,V_y,H_x,H_y
 
 
 def main():
@@ -199,23 +219,15 @@ def main():
     N=len(matX) # the number os samples, i.e. rows of X and Y
     p=len(matX[0])
     q=len(matY[0])
-    print('X',matX)
-    print('Y',matY)
+
     d=2 #quantity of latent variables (columns of W)
     lam=100
-
-
     #for i in range(len(aims_values)-1):
         #if aims_values[i]<aims_values[i+1]:
             #print('aiaiai')
 
-    #print(matX-np.dot((W+V_x),H_x))
-    #print(matY- np.dot(W + V_y, H_y))
-    #print(np.dot(V_x, H_x))
 
-    #print(frob_norm( matY- np.dot(W + V_y, H_y)))
-
-    W,H=_NMF(matXX,3,4,10,'NMF')
+    W,H,min_targ_func_value=_NMF(matXX,3,4,10,'NMF')
     print('W',W)
     print('H',H)
 
@@ -223,8 +235,8 @@ def main():
     print(np.dot(W, H))
 
     print('iNMF')
-    W,V_x,V_y,H_x,H_y,list_of_aims=iNMF(matX, matY, d, lam, 5)
-    print('aims', list_of_aims)
+    W,V_x,V_y,H_x,H_y=iNMF(matX, matY, d, lam, 5,7)
+
 
     print('W',np.around(W, decimals=3))
     print('V_x',np.around(V_x, decimals=3))
@@ -233,6 +245,7 @@ def main():
     print('H_y',np.around(H_y, decimals=3))
 
     print(np.dot(W+V_x,H_x))
+    print(np.dot(W + V_y, H_y))
 
     print('jNMF')
     jNMF(matX, matY, d, 4, 10)
