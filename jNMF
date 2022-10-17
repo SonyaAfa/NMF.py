@@ -1,0 +1,21 @@
+number of iterations=4
+number of start points=10
+rank od factorization=2
+
+MAIN RESULTS
+X
+ [[1. 0. 2. 0.]
+ [0. 1. 0. 2.]]
+W
+ [[ 0.14 48.29]
+ [37.63  0.  ]] 
+H
+ [[0.   0.03 0.   0.05]
+ [0.02 0.   0.04 0.  ]] 
+targ_func 0.017097256480297557
+H_x
+ [[0.   0.03]
+ [0.02 0.  ]]
+H_y
+ [[0.   0.05]
+ [0.04 0.  ]]
