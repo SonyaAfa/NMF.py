@@ -50,15 +50,18 @@ def _NMF_step(X,W,H):
 
     for i in range(d):
         for j in range(p):
-            A = np.dot(np.transpose(W1), X)
-            B = np.dot(np.dot(np.transpose(W1), W1), H1)
-            H1[i, j] = H1[i, j] * (A[i, j] / B[i, j])
+            #A = np.dot(np.transpose(W1), X)#B = np.dot(np.dot(np.transpose(W1), W1), H1)#H1[i, j] = H1[i, j] * (A[i, j] / B[i, j])
+            A = np.dot(np.transpose(W1)[i], X[:,j])
+            B = np.dot(np.dot(np.transpose(W1)[i], W1), H1[:,j])
+            H1[i, j] = H1[i, j] * (A / B)
 
     for i in range(N):
         for j in range(d):
-            C = np.dot(X, np.transpose(H1))
-            D = np.dot(W1, np.dot(H1, np.transpose(H1)))
-            W1[i, j] = W1[i, j] * (C[i, j] / D[i, j])
+            #C = np.dot(X, np.transpose(H1))
+            C = np.dot(X[i], np.transpose(H1)[:,j])
+            #D = np.dot(W1, np.dot(H1, np.transpose(H1)))
+            D = np.dot(W1[i], np.dot(H1, np.transpose(H1)[:,j]))
+            W1[i, j] = W1[i, j] * (C / D)
 
     return W1,H1
 
@@ -127,41 +130,46 @@ def iNMF_step(X,Y,W,V_x,V_y,H_x,H_y,lam):
 
     for i in range(N):
         for j in range(d):
-            A_x = np.dot(H_x, np.transpose(H_x))
-            A_y = np.dot(H_y, np.transpose(H_y))
-            S_x = W + V_x
-            S_y = W + V_y
+            A_x = np.dot(H_x, np.transpose(H_x[j]))#[:,j])
+            A_y = np.dot(H_y, np.transpose(H_y[j]))#[:,j])
+            S_x = W[i] + V_x[i]
+            S_y = W[i] + V_y[i]
             U_x = np.dot(S_x, A_x)
             U_y = np.dot(S_y, A_y)
-            B_x = np.dot(X, np.transpose(H_x))
-            B_y = np.dot(Y, np.transpose(H_y))
-            D_x = np.dot(V_x, A_x)
-            D_y = np.dot(V_y, A_y)
+            B_x = np.dot(X[i], np.transpose(H_x[j]))
+            B_y = np.dot(Y[i], np.transpose(H_y[j]))
+            D_x = np.dot(V_x[i], A_x)
+            D_y = np.dot(V_y[i], A_y)
 
-            cW=((B_x+B_y)[i,j]/(U_x+U_y)[i,j])
+            cW=(B_x+B_y)/(U_x+U_y)
             W[i,j]=W[i,j]*cW
-            cVx=B_x[i,j]/(U_x+lam*D_x)[i,j]
+            cVx=B_x/(U_x+lam*D_x)
             V_x[i,j]=V_x[i,j]*cVx
-            cVy=B_y[i, j] / (U_y + lam * D_y)[i, j]
+            cVy=B_y / (U_y + lam * D_y)
             V_y[i, j] = V_y[i, j] * cVy
     for i in range(d):
         for j in range(p):
             S_x = W + V_x
-            T_x = np.dot(np.dot(np.transpose(V_x), V_x), H_x)
-            C_x = np.dot(np.dot(np.transpose(S_x), S_x), H_x)
-            E_x = np.dot(np.transpose(S_x), X)
-            cHx = E_x[i, j] / (C_x + lam * T_x)[i, j]
+            T_x = np.dot(np.dot(np.transpose(V_x)[i], V_x), H_x[:,j])
+            C_x = np.dot(np.dot(np.transpose(S_x)[i], S_x), H_x[:,j])
+            E_x = np.dot(np.transpose(S_x)[i], X[:,j])
+            cHx = E_x / (C_x + lam * T_x)
             H_x[i,j]=H_x[i,j]*cHx
     for i in range(d):
         for j in range(q):
             S_y = W + V_y
-            T_y = np.dot(np.dot(np.transpose(V_y), V_y), H_y)
-            C_y = np.dot(np.dot(np.transpose(S_y), S_y), H_y)
-            E_y = np.dot(np.transpose(S_y), Y)
-            cHy = E_y[i, j] / (C_y + lam * T_y)[i, j]
+            T_y = np.dot(np.dot(np.transpose(V_y)[i], V_y), H_y[:,j])
+            C_y = np.dot(np.dot(np.transpose(S_y)[i], S_y), H_y[:,j])
+            E_y = np.dot(np.transpose(S_y)[i], Y[:,j])
+            cHy = E_y / (C_y + lam * T_y)
             H_y[i, j] = H_y[i, j] * cHy
 
     return W,V_x,V_y,H_x,H_y
+
+def targ_func_for_iNMF(X,Y,W,V_x,V_y,H_x,H_y,lam):
+    targ_func_value = (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
+            (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)
+    return targ_func_value
 
 def iNMF(X,Y,d,lam,num_of_iterations,num_of_start_points):
     """NMF factorization with d latent variables"""
@@ -182,13 +190,17 @@ def iNMF(X,Y,d,lam,num_of_iterations,num_of_start_points):
         V_y = create_matrix(N, d)
         H_x = create_matrix(d, p)
         H_y = create_matrix(d, q)
-        #list_of_aims = [
-           # (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
-            #        (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)]
+        #list_of_aims = [targ_func_for_iNMF(X,Y,W,V_x,V_y,H_x,H_y,lam)]
         for _ in range(num_of_iterations):
             W, V_x, V_y, H_x, H_y = iNMF_step(X, Y, W, V_x, V_y, H_x, H_y, lam)
-        targ_func_value = (frob_norm(X - np.dot(W + V_x, H_x))) ** 2 + (frob_norm(Y - np.dot(W + V_y, H_y))) ** 2 + lam * (
-                    (frob_norm(np.dot(V_x, H_x))) ** 2 + (frob_norm(np.dot(V_y, H_y))) ** 2)
+            #list_of_aims.append(targ_func_for_iNMF(X, Y, W, V_x, V_y, H_x, H_y, lam))
+        #print('list of values of target function',list_of_aims,'\n')
+        #for ii in range(len(list_of_aims)-1):
+         #   if list_of_aims[ii]<list_of_aims[ii+1]:
+         #       print('ofjofh')
+
+        targ_func_value = targ_func_for_iNMF(X,Y,W,V_x,V_y,H_x,H_y,lam)
+
         if num==0 or (min_targ_func_value>targ_func_value):
             min_targ_func_value=targ_func_value
             W_main=W
@@ -235,7 +247,7 @@ def main():
     print(np.dot(W, H))
 
     print('iNMF')
-    W,V_x,V_y,H_x,H_y=iNMF(matX, matY, d, lam, 5,7)
+    W,V_x,V_y,H_x,H_y=iNMF(matX, matY, d, lam, 7,7)
 
 
     print('W',np.around(W, decimals=3))
@@ -248,7 +260,7 @@ def main():
     print(np.dot(W + V_y, H_y))
 
     print('jNMF')
-    jNMF(matX, matY, d, 4, 10)
+    jNMF(matX, matY, d, 8, 4)
 
 
 # Press the green button in the gutter to run the script.
